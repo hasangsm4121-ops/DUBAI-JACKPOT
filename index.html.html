@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dubai Jackpot</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f2f4f8; color: #333333; max-width: 480px; margin: 0 auto; min-height: 100vh; padding-bottom: 30px; }
+    header { background-color: #0088ff; color: #ffffff; position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+    .header-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; }
+    .header-bar h1 { font-size: 19px; font-weight: 600; text-align: center; flex: 1; }
+    .icon-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; padding: 4px 8px; font-weight: bold; }
+    main { padding: 12px; }
+    .result-card { background: #ffffff; border-radius: 12px; border: 1px solid #bcdcff; overflow: hidden; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); padding: 10px; }
+    .card-top-banner { background: #e8f3ff; color: #0088ff; border: 1px solid #bcdcff; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .draw-title { font-size: 15px; font-weight: 800; color: #0088ff; text-align: center; margin-bottom: 8px; text-transform: uppercase; }
+    .section-blue-header { background: #0088ff; color: white; text-align: center; padding: 8px; font-size: 14px; font-weight: 700; border-radius: 6px 6px 0 0; margin-top: 8px; }
+    .white-data-box { background: #ffffff; border: 1px solid #bcdcff; text-align: center; padding: 10px; font-size: 22px; font-weight: 800; color: #0088ff; border-radius: 8px; letter-spacing: 2px; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 8px 4px; background: #ffffff; border: 1px solid #bcdcff; border-radius: 0 0 8px 8px; }
+    .grid-cell { padding: 8px 2px; text-align: center; font-weight: 700; color: #0088ff; font-size: 13px; border-right: 1px solid #e1e8ed; }
+    .grid-cell:last-child { border-right: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-bar">
+      <button class="icon-btn">☰</button>
+      <h1>Dubai Jackpot</h1>
+      <div style="width: 30px;"></div>
+    </div>
+  </header>
+
+  <main>
+    <div id="live-results-container">
+      <p style="text-align:center; padding:20px; color:#666;">Loading Past Data...</p>
+    </div>
+  </main>
+
+  <script>
+    const firebaseConfig = {
+      databaseURL: "https://dubai-jackpot-default-rtdb.firebaseio.com"
+    };
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const database = firebase.database();
+
+    // 180 Days Past Data Generator Function
+    function generateDaily180DaysData() {
+      const dailyDraws = [];
+      const today = new Date();
+
+      for (let i = 0; i < 180; i++) {
+        const drawDate = new Date();
+        drawDate.setDate(today.getDate() - i);
+        
+        const year = drawDate.getFullYear();
+        const month = String(drawDate.getMonth() + 1).padStart(2, '0');
+        const day = String(drawDate.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+
+        dailyDraws.push({
+          id: 'gen-' + i,
+          title: 'Dubai Jackpot Daily Draw',
+          date: formattedDate,
+          shift: '03:30 PM Draw',
+          special: String(Math.floor(100000 + Math.random() * 900000)),
+          p2nd: Array.from({length: 5}, () => String(Math.floor(100000 + Math.random() * 900000))),
+          p3rd: Array.from({length: 10}, () => String(Math.floor(100000 + Math.random() * 900000)))
+        });
+      }
+      return dailyDraws;
+    }
+
+    const generatedData = generateDaily180DaysData();
+    renderLiveResults(generatedData);
+
+    // Firebase Listener to merge real published draws with past data
+    database.ref('draws').on('value', (snapshot) => {
+      const globalDraws = snapshot.val() || {};
+      let realDraws = Object.keys(globalDraws).map(key => ({ id: key, ...globalDraws[key] }));
+
+      const mergedMap = new Map();
+      generatedData.forEach(item => mergedMap.set(item.date, item));
+      realDraws.forEach(item => mergedMap.set(item.date, item)); // Real data overrides generated data for that date
+
+      const finalDrawList = Array.from(mergedMap.values());
+      finalDrawList.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      renderLiveResults(finalDrawList);
+    });
+
+    function renderLiveResults(liveDraws) {
+      const container = document.getElementById('live-results-container');
+      if (!liveDraws || liveDraws.length === 0) return;
+
+      container.innerHTML = liveDraws.map(d => `
+        <div class="result-card">
+          <div class="card-top-banner">
+            <span>📅 ${d.date}</span>
+            <span>🕒 ${d.shift || '03:30 PM Draw'}</span>
+          </div>
+
+          <div class="draw-title">${d.title || 'DUBAI JACKPOT DAILY DRAW'}</div>
+
+          <div class="section-blue-header">Special Prize (6-Digit)</div>
+          <div class="white-data-box" style="margin: 0; border-radius: 0 0 8px 8px;">
+            ${d.special}
+          </div>
+
+          <div class="section-blue-header">2nd Prize</div>
+          <div class="grid-5">
+            ${(d.p2nd || []).map(num => `<div class="grid-cell" style="font-size: 10px;">${num}</div>`).join('')}
+          </div>
+
+          <div class="section-blue-header">3rd Prize</div>
+          <div class="grid-5">
+            ${(d.p3rd || []).map(num => `<div class="grid-cell" style="font-size: 9px; padding: 6px 1px;">${num}</div>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

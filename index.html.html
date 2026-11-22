@@ -49,7 +49,7 @@
     }
     const database = firebase.database();
 
-    // 180 Days Past Data Generator Function
+    // 180 Days Past Data Generator Function (Aaj ka din 000000 se shuru hoga jab tak real result na aaye)
     function generateDaily180DaysData() {
       const dailyDraws = [];
       const today = new Date();
@@ -57,20 +57,26 @@
       for (let i = 0; i < 180; i++) {
         const drawDate = new Date();
         drawDate.setDate(today.getDate() - i);
-        
+
         const year = drawDate.getFullYear();
         const month = String(drawDate.getMonth() + 1).padStart(2, '0');
         const day = String(drawDate.getDate()).padStart(2, '0');
         const formattedDate = `${year}-${month}-${day}`;
+
+        const isToday = (i === 0);
 
         dailyDraws.push({
           id: 'gen-' + i,
           title: 'Dubai Jackpot Daily Draw',
           date: formattedDate,
           shift: '03:30 PM Draw',
-          special: String(Math.floor(100000 + Math.random() * 900000)),
-          p2nd: Array.from({length: 5}, () => String(Math.floor(100000 + Math.random() * 900000))),
-          p3rd: Array.from({length: 10}, () => String(Math.floor(100000 + Math.random() * 900000)))
+          special: isToday ? '000000' : String(Math.floor(100000 + Math.random() * 900000)),
+          p2nd: isToday
+            ? Array.from({ length: 5 }, () => '000000')
+            : Array.from({ length: 5 }, () => String(Math.floor(100000 + Math.random() * 900000))),
+          p3rd: isToday
+            ? Array.from({ length: 10 }, () => '000000')
+            : Array.from({ length: 10 }, () => String(Math.floor(100000 + Math.random() * 900000)))
         });
       }
       return dailyDraws;

@@ -49,50 +49,83 @@
     }
     const database = firebase.database();
 
-    // 180 Days Past Data Generator Function (Aaj ka din 000000 se shuru hoga jab tak real result na aaye)
-    function generateDaily180DaysData() {
+    function formatDateLocal(dateObj) {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function isAfter330PM(nowDate) {
+      const minutesNow = nowDate.getHours() * 60 + nowDate.getMinutes();
+      const targetMinutes = 15 * 60 + 30; // 3:30 PM = 15:30
+      return minutesNow >= targetMinutes;
+    }
+
+    function zeroDraw(formattedDate) {
+      return {
+        id: 'zero-' + formattedDate,
+        title: 'Dubai Jackpot Daily Draw',
+        date: formattedDate,
+        shift: '03:30 PM Draw',
+        special: '000000',
+        p2nd: Array.from({ length: 5 }, () => '000000'),
+        p3rd: Array.from({ length: 10 }, () => '000000')
+      };
+    }
+
+    // Past 180 days data + Today's default 000000
+    function generate180DaysAndTodayData() {
       const dailyDraws = [];
       const today = new Date();
+      const todayStr = formatDateLocal(today);
 
       for (let i = 0; i < 180; i++) {
         const drawDate = new Date();
         drawDate.setDate(today.getDate() - i);
+        const formattedDate = formatDateLocal(drawDate);
+        const isToday = (formattedDate === todayStr);
 
-        const year = drawDate.getFullYear();
-        const month = String(drawDate.getMonth() + 1).padStart(2, '0');
-        const day = String(drawDate.getDate()).padStart(2, '0');
-        const formattedDate = `${year}-${month}-${day}`;
-
-        const isToday = (i === 0);
-
-        dailyDraws.push({
-          id: 'gen-' + i,
-          title: 'Dubai Jackpot Daily Draw',
-          date: formattedDate,
-          shift: '03:30 PM Draw',
-          special: isToday ? '000000' : String(Math.floor(100000 + Math.random() * 900000)),
-          p2nd: isToday
-            ? Array.from({ length: 5 }, () => '000000')
-            : Array.from({ length: 5 }, () => String(Math.floor(100000 + Math.random() * 900000))),
-          p3rd: isToday
-            ? Array.from({ length: 10 }, () => '000000')
-            : Array.from({ length: 10 }, () => String(Math.floor(100000 + Math.random() * 900000)))
-        });
+        if (isToday) {
+          dailyDraws.push(zeroDraw(formattedDate));
+        } else {
+          dailyDraws.push({
+            id: 'gen-' + i,
+            title: 'Dubai Jackpot Daily Draw',
+            date: formattedDate,
+            shift: '03:30 PM Draw',
+            special: String(Math.floor(100000 + Math.random() * 900000)),
+            p2nd: Array.from({ length: 5 }, () => String(Math.floor(100000 + Math.random() * 900000))),
+            p3rd: Array.from({ length: 10 }, () => String(Math.floor(100000 + Math.random() * 900000)))
+          });
+        }
       }
       return dailyDraws;
     }
 
-    const generatedData = generateDaily180DaysData();
+    const generatedData = generate180DaysAndTodayData();
     renderLiveResults(generatedData);
 
-    // Firebase Listener to merge real published draws with past data
     database.ref('draws').on('value', (snapshot) => {
       const globalDraws = snapshot.val() || {};
-      let realDraws = Object.keys(globalDraws).map(key => ({ id: key, ...globalDraws[key] }));
+      const now = new Date();
+      const todayStr = formatDateLocal(now);
+      const after330 = isAfter330PM(now);
 
       const mergedMap = new Map();
       generatedData.forEach(item => mergedMap.set(item.date, item));
-      realDraws.forEach(item => mergedMap.set(item.date, item)); // Real data overrides generated data for that date
+
+      Object.keys(globalDraws).forEach(key => {
+        const realItem = { id: key, ...globalDraws[key] };
+        if (!realItem.date) return;
+
+        // Aaj ke din par 3:30 PM se pehle 000000 hi rahega; 3:30 PM ke baad real data aayega
+        if (realItem.date === todayStr && !after330) {
+          mergedMap.set(realItem.date, zeroDraw(realItem.date));
+        } else {
+          mergedMap.set(realItem.date, realItem);
+        }
+      });
 
       const finalDrawList = Array.from(mergedMap.values());
       finalDrawList.sort((a, b) => new Date(b.date) - new Date(a.date));
